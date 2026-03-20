@@ -1,0 +1,126 @@
+# Main Configuration File for Deepfake Video Detection
+
+# Project Settings
+project_name: "deepfake_detection"
+experiment_name: "multimodal_av_detector"
+seed: 42
+
+# Data Settings
+data:
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+  video_extensions: [".mp4", ".avi", ".mov", ".mkv"]
+  audio_sample_rate: 16000
+  video_fps: 30
+  frame_size: 224
+  num_frames: 16  # Number of frames to sample per video
+  clip_duration: 2.0  # seconds
+
+# Model Architecture
+model:
+  name: "MultimodalAVDetector"
+  
+  # Visual branch
+  visual:
+    backbone: "dinov2_vits14"  # Options: dinov2_vits14, dinov2_vitb14, dinov2_vitl14
+    pretrained: true
+    freeze_backbone: false
+    embed_dim: 384  # 384 for vits14, 768 for vitb14, 1024 for vitl14
+    
+  # Temporal modeling
+  temporal:
+    type: "video_swin"  # Options: video_swin, timesformer
+    num_layers: 4
+    num_heads: 6
+    dropout: 0.1
+    
+  # Audio branch
+  audio:
+    backbone: "wav2vec2"  # Options: wav2vec2, whisper
+    pretrained: true
+    freeze_backbone: false
+    embed_dim: 768
+    
+  # Frequency analysis
+  frequency:
+    wavelet_type: "db8"  # Daubechies 8
+    levels: 3
+    bands: ["LL", "LH", "HL", "HH"]
+    
+  # Fusion module
+  fusion:
+    type: "cross_attention"  # Options: cross_attention, concat, late_fusion
+    hidden_dim: 512
+    num_heads: 8
+    dropout: 0.15
+    
+  # Classification head
+  classifier:
+    hidden_dims: [256, 128]
+    dropout: 0.2
+    num_classes: 2  # Real vs Fake
+
+# Training Settings
+training:
+  batch_size: 8
+  num_epochs: 100
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  optimizer: "adamw"  # Options: adam, adamw, sgd
+  scheduler: "cosine"  # Options: cosine, step, plateau
+  warmup_epochs: 5
+  
+  # Loss configuration
+  loss:
+    type: "cross_entropy"  # Options: cross_entropy, focal_loss
+    label_smoothing: 0.1
+    
+  # Augmentation
+  augmentation:
+    horizontal_flip: true
+    color_jitter: true
+    gaussian_blur: true
+    compression_emulation: true  # Social media compression
+    compression_quality: [70, 95]  # JPEG quality range
+
+# Validation Settings
+validation:
+  batch_size: 16
+  split_ratio: 0.2
+  eval_frequency: 1  # Evaluate every N epochs
+
+# Testing Settings
+testing:
+  batch_size: 16
+  tta: false  # Test-time augmentation
+  threshold: 0.5  # Classification threshold
+
+# Explainability (XAI)
+explainability:
+  enabled: true
+  methods: ["gradcam", "shap"]
+  save_visualizations: true
+  visualization_dir: "logs/visualizations"
+
+# Logging & Checkpointing
+logging:
+  use_wandb: false  # Set to true if using Weights & Biases
+  wandb_project: "deepfake-detection"
+  log_frequency: 10  # Log every N batches
+  checkpoint_dir: "checkpoints"
+  save_frequency: 5  # Save checkpoint every N epochs
+  keep_last_n: 3  # Keep only last N checkpoints
+
+# Hardware Settings
+hardware:
+  device: "cuda"  # Options: cuda, cpu
+  num_workers: 4
+  pin_memory: true
+  mixed_precision: true  # Use FP16 training
+  compile_model: false  # Use torch.compile (PyTorch 2.0+)
+
+# Paths
+paths:
+  pretrained_models: "models/pretrained"
+  outputs: "outputs"
+  logs: "logs"
