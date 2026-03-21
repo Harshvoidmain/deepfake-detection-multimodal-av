@@ -1,0 +1,112 @@
+project_name: deepfake_detection
+experiment_name: kaggle_full_celebdf_v2
+seed: 42
+
+data:
+  raw_dir: data/raw
+  processed_dir: data/processed
+  video_extensions:
+    - .mp4
+    - .avi
+    - .mov
+    - .mkv
+  audio_sample_rate: 16000
+  video_fps: 30
+  frame_size: 224
+  num_frames: 16
+  clip_duration: 2.0
+
+model:
+  name: MultimodalAVDetector
+  visual:
+    backbone: dinov2_vits14
+    pretrained: true
+    freeze_backbone: false
+    embed_dim: 384
+  temporal:
+    type: video_swin
+    num_layers: 4
+    num_heads: 6
+    dropout: 0.1
+  audio:
+    backbone: wav2vec2
+    pretrained: true
+    # Freeze audio backbone for first N epochs to stabilize training
+    freeze_backbone: true
+    embed_dim: 768
+  frequency:
+    wavelet_type: db8
+    levels: 3
+    bands:
+      - LL
+      - LH
+      - HL
+      - HH
+  fusion:
+    type: cross_attention
+    hidden_dim: 512
+    num_heads: 8
+    dropout: 0.15
+  classifier:
+    hidden_dims:
+      - 256
+      - 128
+    dropout: 0.3
+    num_classes: 2
+
+training:
+  batch_size: 8
+  num_epochs: 30
+  learning_rate: 0.00005   # Lower LR to avoid early overfitting with frozen backbone
+  weight_decay: 0.0001
+  optimizer: adamw
+  scheduler: plateau          # ReduceLROnPlateau responds to val_acc stagnation
+  warmup_epochs: 3
+  loss:
+    type: cross_entropy
+    label_smoothing: 0.1
+  augmentation:
+    horizontal_flip: true
+    color_jitter: true
+    gaussian_blur: true
+    compression_emulation: true
+    compression_quality:
+      - 70
+      - 95
+
+validation:
+  batch_size: 16
+  split_ratio: 0.15
+  eval_frequency: 1
+
+testing:
+  batch_size: 16
+  tta: false
+  threshold: 0.5
+
+explainability:
+  enabled: false           # Disable during training to save memory
+  methods:
+    - gradcam
+  save_visualizations: false
+  visualization_dir: logs/visualizations
+
+logging:
+  use_wandb: false
+  wandb_project: deepfake-detection
+  log_frequency: 20
+  checkpoint_dir: checkpoints/kaggle_full
+  save_frequency: 2        # Save every 2 epochs for Kaggle session safety
+  keep_last_n: 5
+
+hardware:
+  device: cuda
+  num_workers: 4
+  pin_memory: true
+  mixed_precision: true
+  compile_model: false
+
+paths:
+  pretrained_models: models/pretrained
+  outputs: outputs
+  logs: logs/kaggle_full
